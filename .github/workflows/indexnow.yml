@@ -1,0 +1,40 @@
+name: 색인 통보 (IndexNow + Google)
+
+# 운영 브랜치에 푸시되어 페이지가 바뀌면 검색엔진에 즉시 색인을 통보합니다.
+# - IndexNow: Bing·Naver·Yandex (키 파일이 사이트에 공개되어 있어 자격증명 불필요)
+# - Google: 선택. 저장소 Secret 에 GOOGLE_INDEXING_CREDENTIALS(서비스계정 JSON)가 있을 때만 동작
+on:
+  push:
+    branches: [main]
+    paths:
+      - "**/index.html"
+      - "sitemap.xml"
+      - "rss.xml"
+  workflow_dispatch: {}
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      # Cloudflare Pages 배포가 키 파일·새 페이지를 반영할 시간을 줍니다.
+      - name: Wait for deploy to settle
+        run: sleep 60
+
+      - name: IndexNow (Bing·Naver·Yandex)
+        run: python3 scripts/indexnow.py
+
+      - name: Google Indexing API (선택)
+        if: ${{ secrets.GOOGLE_INDEXING_CREDENTIALS != '' }}
+        env:
+          GOOGLE_INDEXING_CREDENTIALS: ${{ secrets.GOOGLE_INDEXING_CREDENTIALS }}
+        run: |
+          printf '%s' "$GOOGLE_INDEXING_CREDENTIALS" > /tmp/gcp-sa.json
+          export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-sa.json
+          python3 -m pip install --quiet google-auth requests
+          python3 scripts/google_indexing.py || true

@@ -17,9 +17,13 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+from datetime import datetime, timezone
+
 from content import PAGES
 from content.site import (BASE_URL, BRAND, BRAND_MARK, NAV, PHONE,
-                          PHONE_DISPLAY, REGION, REGION_FULL)
+                          PHONE_DISPLAY, REGION, REGION_FULL,
+                          NAVER_SITE_VERIFICATION, GOOGLE_SITE_VERIFICATION,
+                          INDEXNOW_KEY)
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 MIN_INDEX_CHARS = 2000
@@ -153,6 +157,13 @@ def render_page(page: dict) -> str:
     breadcrumb_jsonld = render_breadcrumb_jsonld(crumbs)
     extra_head = breadcrumb_jsonld + extra_head
 
+    # 검색엔진 소유 확인 메타태그 (값이 있을 때만)
+    verify_meta = ""
+    if NAVER_SITE_VERIFICATION:
+        verify_meta += f'<meta name="naver-site-verification" content="{NAVER_SITE_VERIFICATION}">\n'
+    if GOOGLE_SITE_VERIFICATION:
+        verify_meta += f'<meta name="google-site-verification" content="{GOOGLE_SITE_VERIFICATION}">\n'
+
     # 히어로가 있는 페이지(메인)는 H1을 히어로 안에서 출력한다.
     if hero:
         page_head = hero
@@ -174,6 +185,7 @@ def render_page(page: dict) -> str:
 <meta name="description" content="{desc}">
 {robots}
 <link rel="canonical" href="{canonical}">
+{verify_meta}<link rel="alternate" type="application/rss+xml" title="{BRAND} 업데이트" href="{BASE_URL.rstrip('/')}/rss.xml">
 <meta property="og:type" content="website">
 <meta property="og:title" content="{title}">
 <meta property="og:description" content="{desc}">
@@ -279,9 +291,11 @@ def render_page(page: dict) -> str:
 def build() -> None:
     report = []
     sitemap_urls = []
+    feed_items = []  # (loc, title, desc)
+    base = BASE_URL.rstrip("/")
 
     for page in PAGES:
-        path = page["path"]  # "" 또는 "nowon-gu/wolgye-dong/" 형태
+        path = page["path"]  # "" 또는 "siheung/jeongwang-dong-chuljangmassage/" 형태
         out_dir = os.path.join(ROOT, path)
         os.makedirs(out_dir, exist_ok=True)
         html_out = render_page(page)
@@ -291,12 +305,18 @@ def build() -> None:
         chars = text_length(page["body"])
         noindex = page.get("noindex", False) or chars < MIN_INDEX_CHARS
         if not noindex:
-            sitemap_urls.append(BASE_URL.rstrip("/") + "/" + path)
+            loc = base + "/" + path
+            sitemap_urls.append(loc)
+            feed_items.append((loc, page["title"], page["desc"]))
         report.append((path or "/", chars, "noindex" if noindex else "index"))
 
-    # sitemap.xml
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    rfc822 = datetime.now(timezone.utc).strftime("%a, %d %b %Y %H:%M:%S +0000")
+
+    # sitemap.xml (lastmod 포함)
     urls = "\n".join(
-        f"  <url><loc>{u}</loc></url>" for u in sitemap_urls
+        f"  <url><loc>{u}</loc><lastmod>{today}</lastmod></url>"
+        for u in sitemap_urls
     )
     with open(os.path.join(ROOT, "sitemap.xml"), "w", encoding="utf-8") as f:
         f.write(
@@ -305,12 +325,40 @@ def build() -> None:
             f"{urls}\n</urlset>\n"
         )
 
+    # rss.xml (네이버 서치어드바이저 RSS 제출용)
+    items = "\n".join(
+        "    <item>"
+        f"<title>{html.escape(t)}</title>"
+        f"<link>{loc}</link>"
+        f"<guid isPermaLink=\"true\">{loc}</guid>"
+        f"<description>{html.escape(d)}</description>"
+        f"<pubDate>{rfc822}</pubDate>"
+        "</item>"
+        for loc, t, d in feed_items
+    )
+    with open(os.path.join(ROOT, "rss.xml"), "w", encoding="utf-8") as f:
+        f.write(
+            '<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<rss version="2.0"><channel>\n'
+            f"  <title>{html.escape(BRAND)} — 시흥 출장마사지·홈타이 안내</title>\n"
+            f"  <link>{base}/</link>\n"
+            f"  <description>경기도 시흥시 전지역 방문 출장마사지·홈타이 지역 안내</description>\n"
+            "  <language>ko</language>\n"
+            f"  <lastBuildDate>{rfc822}</lastBuildDate>\n"
+            f"{items}\n"
+            "</channel></rss>\n"
+        )
+
     # robots.txt
     with open(os.path.join(ROOT, "robots.txt"), "w", encoding="utf-8") as f:
         f.write(
             "User-agent: *\nAllow: /\n\n"
-            f"Sitemap: {BASE_URL.rstrip('/')}/sitemap.xml\n"
+            f"Sitemap: {base}/sitemap.xml\n"
         )
+
+    # IndexNow 키 파일 — /{KEY}.txt 로 공개되어야 IndexNow 제출이 인증된다.
+    with open(os.path.join(ROOT, f"{INDEXNOW_KEY}.txt"), "w", encoding="utf-8") as f:
+        f.write(INDEXNOW_KEY + "\n")
 
     # .nojekyll (GitHub Pages)
     open(os.path.join(ROOT, ".nojekyll"), "w").close()

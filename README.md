@@ -47,8 +47,48 @@ python3 build.py
 - 실제 오프라인 사업장 주소가 없으므로 **LocalBusiness Schema 미사용** (Organization·WebPage·BreadcrumbList·FAQPage만 사용)
 - 모든 페이지 본문은 페이지별 고유 작성 (지역명만 바꾼 복붙 없음)
 
+## 색인(Indexing) 설정 — 네이버·구글·빙 빠른 노출
+
+빌드 시 다음이 자동 생성됩니다.
+
+- `sitemap.xml` — 색인 대상 31개 URL (`lastmod` 포함)
+- `rss.xml` — 네이버 서치어드바이저 RSS 제출용 피드 (전 페이지 `<link rel="alternate">` 연결)
+- `robots.txt` — `Sitemap:` 줄 포함
+- `{INDEXNOW_KEY}.txt` — IndexNow 인증 키 파일 (사이트 루트에 공개)
+- 메인 등 전 페이지에 `naver-site-verification` 메타태그 삽입 (`content/site.py`에서 관리)
+
+### 소유 확인
+- 네이버: 서치어드바이저에 사이트 등록 → 메인 메타태그는 이미 삽입되어 있음 → '소유확인'
+- 구글: Search Console 'HTML 태그' 인증 시 `content/site.py`의 `GOOGLE_SITE_VERIFICATION`에 값 입력 후 재빌드
+
+### 제출
+- 네이버: 서치어드바이저 > 요청 > 사이트맵 제출(`/sitemap.xml`) + RSS 제출(`/rss.xml`)
+- 구글: Search Console > Sitemaps > `/sitemap.xml` 제출
+
+### IndexNow — 빙·네이버·얀덱스 즉시 통보 (자격증명 불필요)
+키 파일이 배포되어 있어야 합니다(`https://<도메인>/<KEY>.txt`).
+```bash
+python3 scripts/indexnow.py                 # sitemap 전체 제출
+python3 scripts/indexnow.py <URL> [<URL>…]  # 특정 글만 제출
+```
+`.github/workflows/indexnow.yml` 이 **main 브랜치 푸시 시 자동 실행**됩니다(배포 60초 대기 후 제출).
+
+### 구글 Indexing API (선택) — 구글은 IndexNow 미참여
+서비스 계정 JSON 을 발급하고 그 계정을 Search Console 소유자로 추가한 뒤:
+```bash
+pip install google-auth requests
+export GOOGLE_APPLICATION_CREDENTIALS=서비스계정.json
+python3 scripts/google_indexing.py
+```
+GitHub Actions 자동화는 저장소 Secret `GOOGLE_INDEXING_CREDENTIALS` 에 JSON 전체를 넣으면 활성화됩니다.
+
+> 참고: 구글/빙의 옛 `sitemap ping` 엔드포인트는 2023년에 폐지되었습니다. 현재 빠른 색인의
+> 실효 경로는 (1) Search Console·서치어드바이저 sitemap 제출, (2) 빙·네이버는 IndexNow,
+> (3) 구글은 Indexing API 보조입니다.
+
 ## 배포 전 해야 할 일
 
-1. `content/site.py`의 `BASE_URL`을 실제 도메인으로 변경
-2. `python3 build.py` 재실행 (canonical·sitemap·robots.txt에 반영됨)
-3. Google Search Console / 네이버 서치어드바이저에 `sitemap.xml` 제출
+1. `content/site.py`의 `BASE_URL`을 실제 도메인으로 변경 (현재 `https://siheung-massage.pages.dev`)
+2. `python3 build.py` 재실행 (canonical·sitemap·rss·robots·IndexNow 키에 반영됨)
+3. 네이버 서치어드바이저 / 구글 Search Console 에 sitemap·RSS 제출
+4. 운영 브랜치(main)로 배포하면 IndexNow 통보가 자동 실행됨

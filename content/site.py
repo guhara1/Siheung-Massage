@@ -10,6 +10,13 @@ PHONE_DISPLAY = "0508-202-4719"
 REGION = "시흥시"
 REGION_FULL = "경기도 시흥시"
 
+# 검색엔진 사이트 소유 확인 (HTML 메타태그 방식)
+NAVER_SITE_VERIFICATION = "0cefc76a793c77da128963fc77cd6665031893bd"
+GOOGLE_SITE_VERIFICATION = ""  # 구글 서치콘솔 'HTML 태그' 인증 시 content 값 입력
+
+# IndexNow 키 — Bing·Naver 즉시 색인 통보용. /{INDEXNOW_KEY}.txt 로 공개된다.
+INDEXNOW_KEY = "794d6c7bffac9fbd35e090d8475bba01"
+
 # 대표 행정동 — 숫자 행정동(정왕1~4동, 배곧1·2동 등)은 대표 동으로 통합한다.
 # (slug, 한글명)  URL: /siheung/{slug}-chuljangmassage/
 DONGS = [
