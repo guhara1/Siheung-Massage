@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://www.siheung-massage.example.com/sitemap.xml
+Sitemap: https://siheung-massage.pages.dev/sitemap.xml
