@@ -668,3 +668,38 @@ th { background: var(--panel-2); color: var(--gold-soft); font-family: var(--ser
   .page-content section { padding: 26px 22px 22px; border-radius: 14px; }
   .cta { padding: 36px 20px; }
 }
+
+/* ── 롱테일 내부링크: 메인 생활권 그리드 / 지역·역 관련 안내 ── */
+.zone-grid,
+.related-grid {
+  display: grid; gap: 16px; margin: 22px 0 4px;
+  grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
+}
+.zone-col, .related-col {
+  background: var(--panel-2); border: 1px solid var(--line);
+  border-radius: 12px; padding: 16px 18px;
+}
+.zone-label, .related-heading {
+  font-size: 0.82rem; color: var(--gold); font-weight: 700;
+  letter-spacing: 0.04em; margin: 0 0 10px; padding-bottom: 8px;
+  border-bottom: 1px solid var(--line-gold);
+}
+.zone-col ul, .related-col ul { list-style: none; margin: 0; padding: 0; }
+.zone-col li, .related-col li { margin: 0; }
+.zone-col a, .related-col a {
+  display: block; padding: 7px 0; color: var(--text);
+  font-size: 0.9rem; line-height: 1.5; border-bottom: 1px solid transparent;
+  transition: color 0.15s, padding-left 0.15s;
+}
+.zone-col a:hover, .related-col a:hover {
+  color: var(--gold-soft); padding-left: 6px;
+}
+
+/* 지역·역 페이지 하단 관련 안내 블록 */
+.related-links {
+  margin-top: 30px; border-top: 1px solid var(--line-gold);
+}
+
+@media (max-width: 640px) {
+  .zone-grid, .related-grid { grid-template-columns: 1fr; gap: 12px; }
+}

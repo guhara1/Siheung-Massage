@@ -23,7 +23,8 @@ from content import PAGES
 from content.site import (BASE_URL, BRAND, BRAND_MARK, NAV, PHONE,
                           PHONE_DISPLAY, REGION, REGION_FULL,
                           NAVER_SITE_VERIFICATION, GOOGLE_SITE_VERIFICATION,
-                          INDEXNOW_KEY)
+                          INDEXNOW_KEY, COURSES, REVIEWS, AGG_RATING,
+                          related_links_for)
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 MIN_INDEX_CHARS = 2000
@@ -134,6 +135,169 @@ def render_breadcrumb_jsonld(crumbs) -> str:
     )
 
 
+def _jsonld(obj) -> str:
+    return (
+        '<script type="application/ld+json">'
+        + json.dumps(obj, ensure_ascii=False)
+        + "</script>\n"
+    )
+
+
+# @id 앵커 — 그래프 안에서 Organization / WebSite 를 서로 참조한다.
+_ORG_ID = BASE_URL.rstrip("/") + "/#organization"
+_SITE_ID = BASE_URL.rstrip("/") + "/#website"
+_SERVICE_ID = BASE_URL.rstrip("/") + "/#service"
+
+
+def render_global_jsonld() -> str:
+    """모든 페이지에 공통으로 들어가는 Organization·WebSite·Service 그래프.
+    Service 에는 코스별 Offer 와 (설정된 경우) 후기·평점을 포함한다."""
+    base = BASE_URL.rstrip("/")
+
+    organization = {
+        "@type": "Organization",
+        "@id": _ORG_ID,
+        "name": BRAND,
+        "url": base + "/",
+        "telephone": PHONE,
+        "image": base + "/assets/og-image.png",
+        "logo": base + "/assets/icon-512.png",
+        "description": f"{REGION_FULL} 전지역 방문 출장마사지·홈타이 예약 안내",
+        "areaServed": {"@type": "AdministrativeArea", "name": REGION_FULL},
+        "contactPoint": {
+            "@type": "ContactPoint",
+            "telephone": PHONE,
+            "contactType": "reservations",
+            "areaServed": "KR",
+            "availableLanguage": "Korean",
+        },
+    }
+
+    website = {
+        "@type": "WebSite",
+        "@id": _SITE_ID,
+        "name": BRAND,
+        "url": base + "/",
+        "inLanguage": "ko",
+        "publisher": {"@id": _ORG_ID},
+    }
+
+    offers = [
+        {
+            "@type": "Offer",
+            "name": name,
+            "price": str(price),
+            "priceCurrency": "KRW",
+            "description": desc,
+            "availability": "https://schema.org/InStock",
+        }
+        for name, price, desc in COURSES
+    ]
+    service = {
+        "@type": "Service",
+        "@id": _SERVICE_ID,
+        "serviceType": "출장마사지·홈타이 방문 관리",
+        "name": f"{REGION} 출장마사지·홈타이 방문 관리",
+        "url": base + "/",
+        "provider": {"@id": _ORG_ID},
+        "areaServed": {"@type": "AdministrativeArea", "name": REGION_FULL},
+        "hasOfferCatalog": {
+            "@type": "OfferCatalog",
+            "name": "코스별 기본 요금",
+            "itemListElement": offers,
+        },
+    }
+    # 후기·평점 — 설정된 경우에만 추가(자사 리뷰 정책 위험은 site.py 주석 참고).
+    if AGG_RATING:
+        service["aggregateRating"] = {
+            "@type": "AggregateRating",
+            "ratingValue": AGG_RATING["value"],
+            "reviewCount": str(AGG_RATING["count"]),
+            "bestRating": "5",
+            "worstRating": "1",
+        }
+    if REVIEWS:
+        service["review"] = [
+            {
+                "@type": "Review",
+                "author": {"@type": "Person", "name": author},
+                "reviewRating": {
+                    "@type": "Rating",
+                    "ratingValue": rating,
+                    "bestRating": "5",
+                    "worstRating": "1",
+                },
+                "reviewBody": body,
+            }
+            for author, rating, body in REVIEWS
+        ]
+
+    graph = {"@context": "https://schema.org", "@graph": [organization, website, service]}
+    return _jsonld(graph)
+
+
+def render_webpage_jsonld(page, canonical, noindex) -> str:
+    """페이지별 WebPage 노드 — 사이트(WebSite)에 소속시킨다."""
+    data = {
+        "@context": "https://schema.org",
+        "@type": "WebPage",
+        "name": page["title"],
+        "url": canonical,
+        "description": page["desc"],
+        "inLanguage": "ko",
+        "isPartOf": {"@id": _SITE_ID},
+        "about": {"@id": _SERVICE_ID},
+    }
+    return _jsonld(data)
+
+
+_FAQ_RE = re.compile(
+    r'<div class="faq-item">\s*<h3>(.*?)</h3>\s*<p>(.*?)</p>\s*</div>', re.S
+)
+
+
+def render_faqpage_jsonld(body: str) -> str:
+    """본문의 faq-item 마크업을 모아 FAQPage JSON-LD 를 자동 생성한다."""
+    pairs = _FAQ_RE.findall(body)
+    if not pairs:
+        return ""
+
+    def clean(s):
+        s = re.sub(r"<[^>]+>", "", s)
+        return html.unescape(re.sub(r"\s+", " ", s)).strip()
+
+    entities = [
+        {
+            "@type": "Question",
+            "name": clean(q),
+            "acceptedAnswer": {"@type": "Answer", "text": clean(a)},
+        }
+        for q, a in pairs
+    ]
+    return _jsonld({
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": entities,
+    })
+
+
+def render_related_links(path: str) -> str:
+    """롱테일 앵커 텍스트로 관련 지역·안내를 연결하는 내부링크 블록."""
+    groups = related_links_for(path)
+    if not groups:
+        return ""
+    cols = []
+    for heading, links in groups:
+        items = "".join(f'<li><a href="{href}">{text}</a></li>' for text, href in links)
+        cols.append(f'<div class="related-col"><p class="related-heading">{heading}</p><ul>{items}</ul></div>')
+    return (
+        '<section class="related-links" aria-label="관련 안내">'
+        '<h2>함께 보면 좋은 시흥 출장마사지·홈타이 안내</h2>'
+        f'<div class="related-grid">{"".join(cols)}</div>'
+        "</section>"
+    )
+
+
 def render_page(page: dict) -> str:
     path = page["path"]
     title = page["title"]
@@ -153,9 +317,18 @@ def render_page(page: dict) -> str:
     )
     canonical = BASE_URL.rstrip("/") + "/" + path
 
-    # BreadcrumbList JSON-LD 자동 생성 (홈 + 브레드크럼 경로).
-    breadcrumb_jsonld = render_breadcrumb_jsonld(crumbs)
-    extra_head = breadcrumb_jsonld + extra_head
+    # 구조화 데이터 — 전 페이지 공통(Organization·WebSite·Service+Offer+후기) +
+    # 페이지별 WebPage + 본문 FAQ 자동 추출(FAQPage) + BreadcrumbList.
+    schema = render_global_jsonld()
+    schema += render_webpage_jsonld(page, canonical, noindex)
+    schema += render_faqpage_jsonld(body)
+    schema += render_breadcrumb_jsonld(crumbs)
+    extra_head = schema + extra_head
+
+    # 롱테일 내부링크(관련 안내) 블록을 본문 끝에 덧붙인다.
+    related = render_related_links(path)
+    if related:
+        body = body + related
 
     # 검색엔진 소유 확인 메타태그 (값이 있을 때만)
     verify_meta = ""
@@ -306,17 +479,26 @@ def build() -> None:
         noindex = page.get("noindex", False) or chars < MIN_INDEX_CHARS
         if not noindex:
             loc = base + "/" + path
-            sitemap_urls.append(loc)
+            sitemap_urls.append((loc, path))
             feed_items.append((loc, page["title"], page["desc"]))
         report.append((path or "/", chars, "noindex" if noindex else "index"))
 
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     rfc822 = datetime.now(timezone.utc).strftime("%a, %d %b %Y %H:%M:%S +0000")
 
-    # sitemap.xml (lastmod 포함)
+    # sitemap.xml — lastmod·changefreq·priority 로 색인 우선순위를 명시한다.
+    # 메인 1.0 → 허브(행정동·역) 0.9 → 상세 0.8.
+    hubs = {"", "siheung/", "siheung/stations/"}
+
+    def _priority(p):
+        if p == "":
+            return "1.0"
+        return "0.9" if p in hubs else "0.8"
+
     urls = "\n".join(
-        f"  <url><loc>{u}</loc><lastmod>{today}</lastmod></url>"
-        for u in sitemap_urls
+        f"  <url><loc>{loc}</loc><lastmod>{today}</lastmod>"
+        f"<changefreq>weekly</changefreq><priority>{_priority(p)}</priority></url>"
+        for loc, p in sitemap_urls
     )
     with open(os.path.join(ROOT, "sitemap.xml"), "w", encoding="utf-8") as f:
         f.write(
@@ -349,10 +531,15 @@ def build() -> None:
             "</channel></rss>\n"
         )
 
-    # robots.txt
+    # robots.txt — 전 크롤러 허용 + 주요 검색엔진 봇(구글·빙·네이버 Yeti·다음) 명시.
+    # 색인 차단 요소를 두지 않고 sitemap 위치를 알려 색인 속도를 높인다.
     with open(os.path.join(ROOT, "robots.txt"), "w", encoding="utf-8") as f:
         f.write(
             "User-agent: *\nAllow: /\n\n"
+            "User-agent: Googlebot\nAllow: /\n\n"
+            "User-agent: Yeti\nAllow: /\n\n"        # 네이버
+            "User-agent: Daum\nAllow: /\n\n"        # 다음·카카오
+            "User-agent: bingbot\nAllow: /\n\n"
             f"Sitemap: {base}/sitemap.xml\n"
         )
 
