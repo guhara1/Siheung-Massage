@@ -5,7 +5,7 @@ name: 색인 통보 (IndexNow + Google)
 # - Google: 선택. 저장소 Secret 에 GOOGLE_INDEXING_CREDENTIALS(서비스계정 JSON)가 있을 때만 동작
 on:
   push:
-    branches: [main]
+    branches: [claude/exciting-tesla-wozzls]
     paths:
       - "**/index.html"
       - "sitemap.xml"
@@ -22,7 +22,7 @@ jobs:
         with:
           python-version: "3.x"
 
-      # Cloudflare Pages 배포가 키 파일·새 페이지를 반영할 시간을 줍니다.
+      # Netlify 배포가 키 파일·새 페이지를 반영할 시간을 줍니다.
       - name: Wait for deploy to settle
         run: sleep 60
 

@@ -1,6 +1,6 @@
 # 사이트 공통 설정
-# 배포 도메인 (Cloudflare Pages)
-BASE_URL = "https://siheung-massage.pages.dev"
+# 배포 도메인 (Netlify)
+BASE_URL = "https://siheung-massage.netlify.app"
 
 BRAND = "간다GO"
 BRAND_MARK = "간"
