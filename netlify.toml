@@ -1,0 +1,25 @@
+# Netlify 배포 설정 — 간다GO 시흥 출장마사지·홈타이 정적 사이트
+# GitHub 운영 브랜치에 푸시되면 자동으로 build.py 를 실행해 정적 페이지를 생성·배포한다.
+
+[build]
+  # 페이지·sitemap·rss·robots·IndexNow 키를 build.py 가 루트에 직접 생성
+  command = "python3 build.py"
+  # 빌드 결과물은 저장소 루트에 그대로 떨어진다
+  publish = "."
+
+[build.environment]
+  PYTHON_VERSION = "3.12"
+
+# 정적 호스팅 기본 보안 헤더
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "SAMEORIGIN"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+# 존재하지 않는 경로는 사이트 자체 404 페이지로
+[[redirects]]
+  from = "/*"
+  to = "/404.html"
+  status = 404

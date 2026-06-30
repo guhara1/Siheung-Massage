@@ -86,9 +86,14 @@ GitHub Actions 자동화는 저장소 Secret `GOOGLE_INDEXING_CREDENTIALS` 에 J
 > 실효 경로는 (1) Search Console·서치어드바이저 sitemap 제출, (2) 빙·네이버는 IndexNow,
 > (3) 구글은 Indexing API 보조입니다.
 
-## 배포 전 해야 할 일
+## 배포 (Netlify)
 
-1. `content/site.py`의 `BASE_URL`을 실제 도메인으로 변경 (현재 `https://siheung-massage.pages.dev`)
-2. `python3 build.py` 재실행 (canonical·sitemap·rss·robots·IndexNow 키에 반영됨)
-3. 네이버 서치어드바이저 / 구글 Search Console 에 sitemap·RSS 제출
-4. 운영 브랜치(main)로 배포하면 IndexNow 통보가 자동 실행됨
+- **호스팅**: Netlify — `https://siheung-massage.netlify.app`
+- **자동 배포**: GitHub 운영 브랜치(`claude/exciting-tesla-wozzls`)에 푸시되면 Netlify 가
+  `netlify.toml` 의 `command = "python3 build.py"` 를 실행해 페이지를 생성·배포한다.
+- 도메인을 바꿀 때는 `content/site.py` 의 `BASE_URL` 만 수정하면 canonical·sitemap·rss·robots·IndexNow
+  키에 모두 반영된다(빌드 시 자동).
+
+### 배포 후 1회 해야 할 일
+1. 네이버 서치어드바이저 / 구글 Search Console 에 sitemap·RSS 제출
+2. 운영 브랜치로 배포되면 `.github/workflows/indexnow.yml` 이 IndexNow 통보를 자동 실행
