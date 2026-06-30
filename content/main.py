@@ -1,89 +1,12 @@
 # 메인(홈) 페이지 — 허브 역할. 모든 키워드를 밀어 넣지 않고 상세 페이지로 연결한다.
 # 실제 오프라인 사업장 주소가 없으므로 LocalBusiness 계열 Schema 는 사용하지 않는다.
-from .site import (BASE_URL, BRAND, PHONE, PHONE_DISPLAY, REGION_FULL,
-                   DONGS, STATIONS, dong_url, station_url)
+from .site import (BRAND, PHONE, PHONE_DISPLAY,
+                   DONGS, STATIONS, dong_url, station_url,
+                   DONG_ZONES, STATION_ZONES)
 from .pricing import PRICING
 
-_JSONLD = f"""<script type="application/ld+json">
-{{
-  "@context": "https://schema.org",
-  "@type": "Organization",
-  "name": "{BRAND}",
-  "url": "{BASE_URL}/",
-  "telephone": "{PHONE}",
-  "image": "{BASE_URL}/assets/og-image.png",
-  "logo": "{BASE_URL}/assets/icon-512.png",
-  "description": "경기도 시흥시 전지역 방문 출장마사지·홈타이 예약 안내",
-  "areaServed": {{
-    "@type": "AdministrativeArea",
-    "name": "{REGION_FULL}"
-  }}
-}}
-</script>
-<script type="application/ld+json">
-{{
-  "@context": "https://schema.org",
-  "@type": "WebPage",
-  "name": "시흥 출장마사지·시흥시 홈타이 지역별 예약 안내",
-  "url": "{BASE_URL}/",
-  "inLanguage": "ko",
-  "description": "시흥 출장마사지·홈타이 예약 전 대표 동, 역세권, 이용 기준을 정리한 지역 안내 페이지입니다.",
-  "isPartOf": {{
-    "@type": "WebSite",
-    "name": "{BRAND}",
-    "url": "{BASE_URL}/"
-  }}
-}}
-</script>
-<script type="application/ld+json">
-{{
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  "mainEntity": [
-    {{
-      "@type": "Question",
-      "name": "시흥시 전지역 방문이 가능한가요?",
-      "acceptedAnswer": {{
-        "@type": "Answer",
-        "text": "예약 시간, 정확한 위치, 배정 상황에 따라 가능 여부가 달라집니다. 정왕동·배곧동·거북섬동 등 대표 행정동과 주요 역세권 페이지에서 생활권별 기준을 확인할 수 있습니다."
-      }}
-    }},
-    {{
-      "@type": "Question",
-      "name": "정왕1동·정왕2동처럼 번호가 붙은 동은 왜 따로 없나요?",
-      "acceptedAnswer": {{
-        "@type": "Answer",
-        "text": "정왕본동과 정왕1~4동은 정왕동 페이지, 배곧1·2동은 배곧동 페이지에서 통합 안내합니다. 같은 생활권을 잘게 나누지 않고 대표 동 단위로 한 번에 안내합니다."
-      }}
-    }},
-    {{
-      "@type": "Question",
-      "name": "오이도역이나 시흥시청역 근처도 가능한가요?",
-      "acceptedAnswer": {{
-        "@type": "Answer",
-        "text": "오이도역, 정왕역, 시흥시청역, 시흥능곡역 등 주요 역세권은 역 페이지에서 주변 생활권과 함께 안내합니다. 정확한 가능 여부는 예약 시 위치 기준으로 확인합니다."
-      }}
-    }},
-    {{
-      "@type": "Question",
-      "name": "목감역·매화역처럼 아직 개통 전인 역도 안내하나요?",
-      "acceptedAnswer": {{
-        "@type": "Answer",
-        "text": "신안산선 등 개통 전 예정역은 단독 페이지로 만들지 않고, 목감동·매화동·시흥시청역 본문 안에서 보조 설명으로만 다룹니다."
-      }}
-    }},
-    {{
-      "@type": "Question",
-      "name": "출장마사지와 홈타이는 무엇이 다른가요?",
-      "acceptedAnswer": {{
-        "@type": "Answer",
-        "text": "홈타이는 자택·숙소·사무실 인근에서 예약 가능 여부를 먼저 확인한 뒤 이용하는 방문형 관리 서비스입니다. 출장마사지와 같은 흐름으로 진행되며, 자세한 내용은 홈타이 이용 가이드에서 확인할 수 있습니다."
-      }}
-    }}
-  ]
-}}
-</script>
-"""
+_DONG_NAME = dict(DONGS)
+_STATION_NAME = dict(STATIONS)
 
 _HERO = f"""<section class="hero">
   <div class="hero-inner">
@@ -111,6 +34,28 @@ _DONG_CARDS = "".join(
 _STATION_CARDS = "".join(
     f'<li><a href="{station_url(slug)}">{name}</a></li>' for slug, name in STATIONS
 )
+
+
+def _longtail_block():
+    """생활권(권역)별로 묶은 롱테일 내부링크 블록.
+    카드 그리드(이름만)와 별개로, 검색 의도에 가까운 긴 앵커 텍스트로 연결한다."""
+    cols = []
+    for label, slugs in DONG_ZONES:
+        items = "".join(
+            f'<li><a href="{dong_url(s)}">{_DONG_NAME[s]} 출장마사지·홈타이 안내</a></li>'
+            for s in slugs if s in _DONG_NAME
+        )
+        cols.append(f'<div class="zone-col"><p class="zone-label">{label}</p><ul>{items}</ul></div>')
+    for label, slugs in STATION_ZONES:
+        items = "".join(
+            f'<li><a href="{station_url(s)}">{_STATION_NAME[s]} 인근 방문 마사지</a></li>'
+            for s in slugs if s in _STATION_NAME
+        )
+        cols.append(f'<div class="zone-col"><p class="zone-label">{label}</p><ul>{items}</ul></div>')
+    return f'<div class="zone-grid">{"".join(cols)}</div>'
+
+
+_LONGTAIL = _longtail_block()
 
 _BODY = f"""
 <section id="service">
@@ -143,6 +88,12 @@ _BODY = f"""
 <ul class="card-grid">
 {_STATION_CARDS}
 </ul>
+</section>
+
+<section id="longtail">
+<h2>생활권별 시흥 출장마사지·홈타이 바로가기</h2>
+<p>같은 시흥시라도 생활권에 따라 방문 동선과 분위기가 다릅니다. 머무시는 곳과 가까운 권역에서 동·역을 골라, 해당 지역의 방문 기준과 예약 안내를 바로 확인하세요.</p>
+{_LONGTAIL}
 </section>
 
 <section id="check">
@@ -188,7 +139,9 @@ PAGE = {
     "desc": "시흥 출장마사지·홈타이 예약 전 대표 동, 역세권, 이용 기준을 정리했습니다.",
     "h1": "시흥 출장마사지 · 시흥시 홈타이 지역별 예약 안내",
     "body": _BODY,
-    "extra_head": _JSONLD,
+    # Organization·WebSite·Service·WebPage·FAQPage 스키마는 build.py 가 전 페이지 공통으로
+    # 주입하므로(FAQ 는 본문 faq-item 에서 자동 추출) 여기서 따로 넣지 않는다.
+    "extra_head": "",
     "breadcrumb": [],
     "hero": _HERO,
 }
